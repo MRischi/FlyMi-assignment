@@ -74,12 +74,10 @@ motor_vector = 1: 1: 19;
 for i = 1:19
     if(M{i, 1}>force)
         motor_vector(i)=1;
-    else
-        if(M{i, 1}*2>force)
+    elseif(M{i, 1}*2>force)
             motor_vector(i)=2;
-        else
+    else
             motor_vector(i)=3;
-        end
     end
 end
 
@@ -91,14 +89,12 @@ for i = 1:19
     if(motor_vector(i)==2)
         weight_vector(i) = M{i, 2}*2;
         thrust_vector(i) = M{i, 1}*2;
-    else
-        if(motor_vector(i)==3)
+    elseif(motor_vector(i)==3)
             weight_vector(i) = M{i, 2}*3;
             thrust_vector(i) = M{i, 1}*3;
-        else
+    else
             weight_vector(i) = M{i, 2};
             thrust_vector(i) = M{i, 1};
-        end
     end
 end
 
