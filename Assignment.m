@@ -4,7 +4,8 @@ close all;
 
 %Given information and assumptions (see PDF for more detail)
 
-weight = 10*9.81; %N
+mass = 10; %kg
+weight = mass*9.81; %N
 structural_weight = 0.5*weight;
 payload = 1.25*9.81; %N
 to_distance = 14.1; %m
@@ -15,6 +16,8 @@ max_CL = 1.46;
 TO_CD = 0.061;
 b = 3.7; %m
 c = 0.15; %m
+h = 0.2; %m
+mu = 0.1; %
 rho = 1.225; %kg/m^3
 
 
@@ -22,21 +25,28 @@ rho = 1.225; %kg/m^3
 
 S = b*c;
 v_stall = sqrt((weight)/(0.5*rho*S*max_CL));
+phi = (16*h/b)^2/(1+(16*h/b)^2);
+AR = (b^2)/S;
 
-F_drag_TO = 0.5*rho*(v_stall^2)*S*TO_CD; %N
-F_TO_roll = (0.5*(v_stall^2)*10)/(to_distance); %N
+D = 0.5*rho*((0.7*v_stall)^2)*S*(TO_CD+phi*(max_CL^2)/(pi*0.80*AR));
+L = 0.7*weight;
 
-F_max = F_drag_TO;
+T = 0.1;
+dist = (1.44*(v_stall^2)*mass)/(2*(T-(D+mu*(weight-L))));
 
-%Checking which force is greater
-if (F_TO_roll>F_drag_TO)
-    F_max = F_TO_roll;
+% Unefficient algorithm but I didn't know any better
+while (abs(dist) > to_distance)
+    T = T+0.1;
+    dist = (1.44*(v_stall^2)*mass)/(2*(T-(D+mu*(weight-L))));
 end
+
+F_max = T; %N
+
 
 %Calculating air resistance in cruise, power and energy for flight
 %(more details in PDF)
 
-energy_takeoff = F_TO_roll*to_distance; %conservative estimation of 3s for take off
+energy_takeoff = F_max*to_distance;
 D_cruise = weight/max_E;
 P_cruise = D_cruise*max_speed; %W
 energy_required = P_cruise*flight_time + energy_takeoff; %J
@@ -57,28 +67,38 @@ force = F_max/9.81; %kgf
 %Working on the motor table
 M = readtable('Motors.dat');
 
-%Dividing between single motor or double motor configurations
-%0=single, 1=double
+%Dividing between motor configurations
+%1=single, 2=double, 3=triple
 
 motor_vector = 1: 1: 19;
 for i = 1:19
     if(M{i, 1}>force)
-        motor_vector(i)=0;
-    else
         motor_vector(i)=1;
+    else
+        if(M{i, 1}*2>force)
+            motor_vector(i)=2;
+        else
+            motor_vector(i)=3;
+        end
     end
 end
+
 
 %Calculating total weight and creating a thrust vector
 weight_vector = 1: 1: 19;
 thrust_vector = 1: 1: 19;
 for i = 1:19
-    if(motor_vector(i))
+    if(motor_vector(i)==2)
         weight_vector(i) = M{i, 2}*2;
         thrust_vector(i) = M{i, 1}*2;
     else
-        weight_vector(i) = M{i, 2};
-        thrust_vector(i) = M{i, 1};
+        if(motor_vector(i)==3)
+            weight_vector(i) = M{i, 2}*3;
+            thrust_vector(i) = M{i, 1}*3;
+        else
+            weight_vector(i) = M{i, 2};
+            thrust_vector(i) = M{i, 1};
+        end
     end
 end
 
@@ -100,18 +120,14 @@ title('Selected UAV motors on the thrust-weight graph')
 xlabel('Weight (kg)')
 ylabel('Thrust (kgf)')
 
-plot(weight_vector(pos), thrust_vector(pos), '.', 'MarkerSize', 10)
-
-highest_ratio = thrust_vector(1)/weight_vector(1);
-pos2 = 1;
-for i = 1:19
-    ratio = thrust_vector(i)/weight_vector(i);
-    if(ratio>highest_ratio)
-        highest_ratio = ratio;
-        pos2 = i;
+for i=1:19
+    if (motor_vector(i)==2)
+        plot(weight_vector(i), thrust_vector(i), '.','MarkerSize', 10, 'Color', 'r')
+    elseif (motor_vector(i)==3)
+        plot(weight_vector(i), thrust_vector(i), '.', 'MarkerSize', 10, 'Color', 'g')
     end
 end
 
-plot(weight_vector(pos2), thrust_vector(pos2), '.', 'MarkerSize', 10, 'Color', 'g')
+plot(weight_vector(pos), thrust_vector(pos), '*', 'MarkerSize', 10, 'Color', 'b')
 
-legend('', 'Lowest weight solution', 'Highest T/W ratio')
+legend('1 motor', '3 motors', '2 motors')
